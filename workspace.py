@@ -80,20 +80,43 @@ colorMap = {'clear' :np.array( [211,209,197], dtype = np.int16),
 
 
 #delta = np.abs((I - colorMap['water'])).sum(axis = 2)
-key = 'city'
-delta = np.zeros([I.shape[0],I.shape[1]])
-for i in range(I.shape[0]):
-    for j in range(I.shape[1]):
-        delta[i,j] = np.sum(np.abs(I[i,j,:] - colorMap[key]))
+key = 'forest'
+#delta = np.zeros([I.shape[0],I.shape[1]])
+#for i in range(I.shape[0]):
+#    for j in range(I.shape[1]):
+#        delta[i,j] = np.sum(np.abs(I[i,j,:] - colorMap[key]))
+delta = np.sum(np.abs( I - colorMap[key]), axis = 2, dtype = np.int16)
 plt.figure();plt.imshow(delta)
 
 
-
+thresholds = {'clear' :np.int16(10), 
+            'forest'  :np.int16(30), 
+            'water'   :np.int16(10), 
+            'city'    :np.int16(10)
+            }
 
 f = copy.copy(I)
-threshold= 15
 
-mask = np.where(delta <threshold, 0,1)
+
+mask = np.int16( np.where(delta <thresholds[key], 0,1))
+#%%
+
+#%%
+#for k in range(3):
+#    f[:,:,k] *= mask
+#%%
+medianFilter = PIL.ImageFilter.MedianFilter(size = 9)
+
+filteredMask = PIL.Image.fromarray(mask).filter(medianFilter)
+plt.figure()
+plt.imshow(filteredMask)
+for k in range(3):
+    f[:,:,k] *= filteredMask
+plt.figure()
+plt.imshow(f)
+
+#%%
+
 
 plt.figure(); plt.imshow(mask)
 
@@ -102,6 +125,31 @@ f[np.where(delta<threshold)[0],np.where(delta<threshold)[1],1] = 0
 f[np.where(delta<threshold)[0],np.where(delta<threshold)[1],2] = 0
 plt.imshow(f)
 #%%
+deltaImage = PIL.Image.fromarray(delta)
+
+#%% Apply median filter to remove small artifacts
+from PIL import ImageFilter
+medianFilter = PIL.ImageFilter.MedianFilter(size = 25)
+deltaFiltered = deltaImage.filter(medianFilter)
+plt.figure()
+plt.imshow(deltaFiltered)
+#%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+#%%
+img = Image.open(mapFileNames[-1])
+img = img.crop((8000,8000,10000,10000))
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
