@@ -10,29 +10,41 @@ mapDirectoryRoot = '/home/dpm314/coconut/maps/'
 mapNames = ['moscow.png','stalingrad.png','kuban.png','rheinland.png']
 mapFileNames = [mapDirectoryRoot + mapName for mapName in mapNames]
 colorMap = {'forest':np.array( [189,186,162], dtype = np.int16),
-            'water' :np.array( [161,186,197], dtype = np.int16),
+            'water' :np.array( [161,186,192], dtype = np.int16),
             'city'  :np.array( [165,165,165], dtype = np.int16)
             }
 thresholds = {'forest'  :np.int16(30),
-              'water'   :np.int16(20),
+              'water'   :np.int16(35),
               'city'    :np.int16(10)
             }
+medianFilters = {'forest'  :ImageFilter.MedianFilter(size = 15),
+                'water'   :ImageFilter.MedianFilter(size = 3),
+                'city'    :ImageFilter.MedianFilter(size = 5)
+            }
+
 #%%
 img = Image.open(mapFileNames[-1])
-img = img.crop((1000,1000,10000,10000))
+img = img.crop((5000,5000,10000,10000))
 #resh = img.resize((10000,10000), resample = PIL.Image.NEAREST)
 
 plt.imshow(img)
 #%%
-masks = {}
-medianFilter = ImageFilter.MedianFilter(size = 9)
+plt.close('all')
+locations = {}
 for key in colorMap.keys():
     mask = np.int16(np.sum( np.abs( np.asarray(img) - colorMap[key]), axis = 2))
-    #mask[mask > thresholds[key] ] = 0
+
     mask = np.where(mask < thresholds[key], np.int16(0), mask )
+    #doesnt work yet... try getdata() or something ? 
+    #indicies = np.argwhere(mask < thresholds[key])
+    #mask[indicies] = 255
+    #locations[key] = indicies
     mask = Image.fromarray(mask)
-    mask = mask.filter(medianFilter)
+    if medianFilters[key] is not None:
+        mask = mask.filter(medianFilters[key])
     masks[key] = mask
+    plt.figure()
+    plt.imshow(masks[key])
 
 #%%
 #useful stuff in Image.
