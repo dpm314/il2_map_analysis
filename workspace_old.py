@@ -2,37 +2,60 @@ import numpy as np
 import matplotlib.pyplot as plt
 import PIL
 from PIL import Image
-from PIL import ImageFilter
 Image.MAX_IMAGE_PIXELS = None
+#%%
+def pixelValueHistogram(I):
+    #returns pixelCount[i,j]
+    #where   pixelCount[i,j] is number of times the value i occurs in layer j
+    pixelCount = np.zeros((255,3))
+    for i in range(3):
+        for j in range(255):
+            print(i,j)
+            pixelCount[j,i] = np.sum(np.where(I[:,:,i] == j))
+    return pixelCount
+#%%
+
 #%%
 #Map raw .png files can be downloaded from: http://tiles.il2missionplanner.com/stalingrad/stalingrad.png #etc for the four map names
 mapDirectoryRoot = '/home/dpm314/coconut/maps/'
 mapNames = ['moscow.png','stalingrad.png','kuban.png','rheinland.png']
 mapFileNames = [mapDirectoryRoot + mapName for mapName in mapNames]
-colorMap = {'forest':np.array( [189,186,162], dtype = np.int16),
-            'water' :np.array( [161,186,197], dtype = np.int16),
-            'city'  :np.array( [165,165,165], dtype = np.int16)
-            }
-thresholds = {'forest'  :np.int16(30),
-              'water'   :np.int16(20),
-              'city'    :np.int16(10)
-            }
 #%%
 img = Image.open(mapFileNames[-1])
-img = img.crop((1000,1000,10000,10000))
+#plt.plot( img.histogram() )
 #resh = img.resize((10000,10000), resample = PIL.Image.NEAREST)
-
+img = img.crop((8000,8000,10000,10000))
 plt.imshow(img)
 #%%
-masks = {}
-medianFilter = ImageFilter.MedianFilter(size = 9)
-for key in colorMap.keys():
-    mask = np.int16(np.sum( np.abs( np.asarray(img) - colorMap[key]), axis = 2))
-    #mask[mask > thresholds[key] ] = 0
-    mask = np.where(mask < thresholds[key], np.int16(0), mask )
-    mask = Image.fromarray(mask)
-    mask = mask.filter(medianFilter)
-    masks[key] = mask
+r,g,b = img.split()
+
+#%%
+nr,ng,nb = np.array(r.getdata()), np.array(g.getdata()), np.array(b.getdata())
+#%%
+resh = img.resize((10000,10000), resample = PIL.Image.NEAREST)
+#%%
+plt.figure()
+plt.plot( resh.histogram()); plt.yscale('log');
+plt.figure()
+plt.plot( img.histogram()); plt.yscale('log');
+
+#%%
+nparr = np.array( resh.getdata(), dtype = np.int16)
+nparr = nparr.reshape(resh.size[1], resh.size[0],3)
+
+#note: I[i,:] is east  -> west at latitude i
+#      I[:,j] is north -> south at longitude j 
+#%%
+
+pixelInds = np.argsort( resh.histogram() )[::-1] #list in descending order of the most common 256 bit values 
+#%%
+#try to figure out what is what...
+plt.figure(); 
+plt.imshow(nparr);
+#%%
+
+k = np.where( (nparr == pixelInds[0]) | (nparr == 50) | (nparr == 124) | (nparr == 126),0,255) #this works without indexing into the color values because len(pixelInds) == len(resh.histogram) == 256
+
 
 #%%
 #useful stuff in Image.
