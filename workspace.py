@@ -10,6 +10,7 @@ def pixelsToCoordinates(pixelIndices, img, downsampleRate = 1):
     coordinates[:,1] = img.size[1]  - pixelIndices[:,0]
     coordinates[:,0] = pixelIndices[:,1]
     coordinates = coordinates[::downsampleRate,:]
+    return coordinates
 
 #%%
 mapDirectoryRoot = '/home/dpm314/il2_map_analysis/maps/'
@@ -17,7 +18,8 @@ mapNames = ['moscow.png','stalingrad.png','kuban.png','rheinland.png']
 mapFileNames = [mapDirectoryRoot + mapName for mapName in mapNames]
 mapIndex = -1
 imgRaw = Image.open(mapFileNames[mapIndex])
-img = imgRaw.crop((0,0,5000,5000))
+img = imgRaw
+#img = imgRaw.crop((0,0,5000,5000))
 #resh = img.resize((10000,10000), resample = PIL.Image.NEAREST)
 plt.imshow(img)
 #Map raw .png files can be downloaded from: http://tiles.il2missionplanner.com/stalingrad/stalingrad.png #etc for the four map names
@@ -43,7 +45,6 @@ masks = {}
 for key in colorMap.keys():
     print('Processing Masks for {} : {}'.format(mapNames[mapIndex], key))
     mask = np.int16(np.sum( np.abs( np.asarray(img) - colorMap[key]), axis = 2))
-
     mask = np.where(mask < thresholds[key], np.int16(0), mask )
     mask = Image.fromarray(mask)
     if medianFilters[key] is not None:
@@ -60,11 +61,15 @@ for key in colorMap.keys():
     locations[key] = np.argwhere( mask_as_array == 0 )
     coordinates[key] = pixelsToCoordinates( locations[key], masks[key], 1 )
 #%%
+def writeCoordinatesToFile(coords,filename_base = 'coordinates_', path_base = '/home/dpm314/il2_map_analysis/data/'):
+    for key in coords.keys():
+        fname = path_base + '{}{}.csv'.format(filename_base, key)
+        print("Writing Coordinates to file: {}".format(fname))
+        np.savetxt(fname,coordinates[key],delimiter=',',fmt='%10i',header='test header')
 
-
-
-
-
+#%%
+for key in coordinates.keys():
+    writeCoordinatesToFile(coordinates[key])
 
 #%%
 #useful stuff in Image.
