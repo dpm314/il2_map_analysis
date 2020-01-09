@@ -3,6 +3,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import PIL
+import os
 from PIL import Image
 from PIL import ImageFilter
 Image.MAX_IMAGE_PIXELS = None
@@ -39,13 +40,14 @@ def fixMapCoordinates(pixelIndices, imgSize):
     coordinates[:,1] = imgSize[1]  - pixelIndices[:,0]
     coordinates[:,0] = pixelIndices[:,1]
     return coordinates
-
 def writeCoordinatesToFile(coords,filename_base = 'coordinates_', path_base = directoryRoot):
     for key in coords.keys():
-        fname = path_base + 'data/' + '{}{}.csv'.format(filename_base, key)
+        if not path_base.endswith('/'):
+            path_base += '/'
+        fname = path_base + '{}{}.csv'.format(filename_base, key)
+        os.makedirs(os.path.dirname(fname), exist_ok=True)
         print("Writing Coordinates to file: {}".format(fname))
         np.savetxt(fname,coordinates[key],delimiter=',',fmt='%7i')
-
 def pixelsToMeters(pixel, mapDimension ):
     #normalize first then expand to meters
     x = np.float32( pixel[:,0] ) / np.max( pixel[:,0] )
@@ -55,57 +57,42 @@ def pixelsToMeters(pixel, mapDimension ):
     x = np.int32(x) #round to nearest meter and save as ints
     y = np.int32(y) 
     return x,y
-
 #%%################ Processing Code #########################################
-mapFileNames = [directoryRoot + 'maps/' + mapName + '.png' for mapName in mapNames]
-mapIndex = -4 #start with just rheinland
-img = Image.open(mapFileNames[mapIndex])#.crop([2500,2500,4001,4001]) #for debug work on small subsection
-#%%
-plt.close('all')
-masks = {}
-diff = {}
-coordinates = {}
-for key in colorMap.keys():
-    print('Generating masks for {} : {}'.format(mapNames[mapIndex], key))
-    #Pre-process filter map image if needed
-    if mapFilters[key] is not None:
-        img_array = np.asarray(img.filter(mapFilters[key]))
-    else:
-        img_arrag = np.asarray(img)
-    print('.')
-    #Compute each pixels similarity to key (water, city or forest templates in colorMap)
-    diff[key] = np.int16(np.sum( np.abs( img_array - colorMap[key]), axis = 2))
-    #Create a mask from the difference, zero pixels below a threshold
-    mask = np.where(diff[key] < thresholds[key], np.int16(0), img.convert('I') )
-    print('..')
-    #Post-process filter mask if needed
-    if maskFilters[key] is not None:
-        #Convert back to Image and filter
-        mask = Image.fromarray(mask).filter(maskFilters[key])
-        #convert back to numpy array 
-        mask = np.asarray(mask, dtype = np.int16)
-    #optional plot the mask:
-    #plt.figure() #plt.imshow(masks[key])
-    #Find indices of all zeros in the mask (where key is)
-    print('    Locating {}'.format(key))
-    locations = np.argwhere( mask == 0 )
-    locations = fixMapCoordinates( locations, img.size)
-    #Convert to meters from the South-West corner (increasing X goes East and increasing Y goes North)
-    coordinates[key] = pixelsToMeters( locations, mapDimensions[mapNames[mapIndex] ] )
-    #store mask for debug & display
-    masks[key] = mask
-#Write to .csv file
-#%%
-writeCoordinatesToFile(coordinates)
-
-#%%
-#Generate Example Figures
-plt.close('all')
-for key in masks.keys():
-    plt.figure(figsize=(10,10)); plt.imshow(masks[key]); plt.title(key)
-    plt.savefig(directoryRoot + key+'_example.png')
-    plt.figure(figsize=(10,10)); plt.plot(coordinates[key][0], coordinates[key][1],'.')
-    plt.xlabel('West->East (m)', fontsize = 16)
-    plt.ylabel('South->North (m)', fontsize = 16)
-    plt.tight_layout()
-    plt.savefig(directoryRoot + key+'_coordinates.png')
+if __name__ == '__main__':
+    mapFileNames = [directoryRoot + 'maps/' + mapName + '.png' for mapName in mapNames]
+    for mapIndex in range(len(mapFileNames)):
+        print( '.... Processing Map: {}'.format(mapNames[mapIndex]))
+        img = Image.open(mapFileNames[mapIndex])#.crop([2500,2500,4001,4001]) #for debug work on small subsection
+        masks = {}
+        diff = {}
+        coordinates = {}
+        for key in colorMap.keys():
+            print('Generating masks for {} : {}'.format(mapNames[mapIndex], key))
+            #Pre-process filter map image if needed
+            if mapFilters[key] is not None:
+                img_array = np.asarray(img.filter(mapFilters[key]))
+            else:
+                img_arrag = np.asarray(img)
+            print('.')
+            #Compute each pixels similarity to key (water, city or forest templates in colorMap)
+            diff[key] = np.int16(np.sum( np.abs( img_array - colorMap[key]), axis = 2))
+            #Create a mask from the difference, zero pixels below a threshold
+            mask = np.where(diff[key] < thresholds[key], np.int16(0), img.convert('I') )
+            print('..')
+            #Post-process filter mask if needed
+            if maskFilters[key] is not None:
+                #Convert back to Image and filter
+                mask = Image.fromarray(mask).filter(maskFilters[key])
+                #convert back to numpy array 
+                mask = np.asarray(mask, dtype = np.int16)
+            #Find indices of all zeros in the mask (where key is)
+            print('    Locating {}'.format(key))
+            locations = np.argwhere( mask == 0 )
+            locations = fixMapCoordinates( locations, img.size)
+            #Convert to meters from the South-West corner (increasing X goes East and increasing Y goes North)
+            coordinates[key] = pixelsToMeters( locations, mapDimensions[mapNames[mapIndex] ] )
+            #store mask for debug & display
+            masks[key] = mask
+        #Write to .csv file
+        dataFilePathBase = directoryRoot + 'data/' + mapNames[mapIndex] + '/'
+        writeCoordinatesToFile(coordinates, path_base=dataFilePathBase)
