@@ -10,22 +10,22 @@ Image.MAX_IMAGE_PIXELS = None
 directoryRoot = '/home/dpm314/coconut/'
 mapNames = ['moscow','stalingrad','kuban','rheinland']
 
-colorMap = {'forest':np.array( [189,186,162], dtype = np.int16),
+colorMap = {'forest':np.array( [173,174,162], dtype = np.int16),
             'water' :np.array( [161,186,192], dtype = np.int16),
             'city'  :np.array( [165,165,165], dtype = np.int16)
             }
-thresholds = {'forest'  :np.int16(25),
-              'water'   :np.int16(20),
-              'city'    :np.int16(1)
+thresholds = {'forest'  :np.int16(35),
+              'water'   :np.int16(22),
+              'city'    :np.int16(5)
             }
 
-mapFilters = {'forest'  :ImageFilter.ModeFilter( size = 5 ),#ImageFilter.ModeFilter( size = 3 ),
+mapFilters = {'forest'  :ImageFilter.ModeFilter( size = 9 ),#ImageFilter.ModeFilter( size = 3 ),
               'water'   :None,
-              'city'    :ImageFilter.ModeFilter( size = 3 )
+              'city'    :ImageFilter.ModeFilter( size = 11 )
             }
 maskFilters = {'forest' :None,
               'water'   :ImageFilter.MinFilter( size = 5 ),
-              'city'    :None
+              'city'    :ImageFilter.MinFilter( size = 5)
             }
 mapDimensions = {
     'moscow'    : (28*10*1000.0,28*10*1000.0),
@@ -44,28 +44,38 @@ def writeCoordinatesToFile(coords,filename_base = 'coordinates_', path_base = di
     for key in coords.keys():
         fname = path_base + 'data/' + '{}{}.csv'.format(filename_base, key)
         print("Writing Coordinates to file: {}".format(fname))
-        np.savetxt(fname,coordinates[key],delimiter=',',fmt='%7i')
+        np.savetxt(fname,coordinates[key],delimiter=',',fmt='%1.7f')
 
-def pixelsToMeters(pixel, mapDimension ):
+
+def pixelsToMeters(pixel, mapDimension, imgSize ):
     #normalize first then expand to meters
-    x = np.float32( pixel[:,0] ) / np.max( pixel[:,0] )
-    y = np.float32( pixel[:,1] ) / np.max( pixel[:,1] )
-    x *= mapDimension[0]
-    y *= mapDimension[1]
-    x = np.int32(x) #round to nearest meter and save as ints
-    y = np.int32(y) 
+
+    #x = np.float32( pixel[:,0] ) / np.max( pixel[:,0] )
+    #y = np.float32( pixel[:,1] ) / np.max( pixel[:,1] )
+    x = np.float32( pixel[:,0] ) / img.size[0]
+    y = np.float32( pixel[:,1] ) / img.size[1]
+
+    x *= np.float32( mapDimension[0] )
+    y *= np.float32( mapDimension[1] )
     return x,y
 
+
+
+def pixelsToNormalized(pixel, imgSize ):
+    #normalize first then expand to meters
+    x = np.float32( pixel[:,0] ) / np.float32( imgSize[0] )
+    y = np.float32( pixel[:,1] ) / np.float32( imgSize[1] )
+    return x,y
 #%%################ Processing Code #########################################
 mapFileNames = [directoryRoot + 'maps/' + mapName + '.png' for mapName in mapNames]
 mapIndex = -4 #start with just rheinland
-img = Image.open(mapFileNames[mapIndex])#.crop([2500,2500,4001,4001]) #for debug work on small subsection
+img = Image.open(mapFileNames[mapIndex]).crop([2500,2500,7001,3501]) #for debug work on small subsection
 #%%
 plt.close('all')
 masks = {}
 diff = {}
 coordinates = {}
-for key in colorMap.keys():
+for key in ['city','forest','water']: #loop in this order for hack fix to remove already-detected city from the forest detection.
     print('Generating masks for {} : {}'.format(mapNames[mapIndex], key))
     #Pre-process filter map image if needed
     if mapFilters[key] is not None:
@@ -76,8 +86,12 @@ for key in colorMap.keys():
     #Compute each pixels similarity to key (water, city or forest templates in colorMap)
     diff[key] = np.int16(np.sum( np.abs( img_array - colorMap[key]), axis = 2))
     #Create a mask from the difference, zero pixels below a threshold
-    mask = np.where(diff[key] < thresholds[key], np.int16(0), img.convert('I') )
+    mask = np.where(diff[key] <= thresholds[key], np.int16(1), img.convert('I') ) #found
+    mask = np.where(diff[key] > thresholds[key],  np.int16(0), mask ) #not_foundmake strictly binary
+    #hack - multiply inverse of city mask to the forest map
     print('..')
+    if(key == 'forest'):
+        mask =  masks['city']  +  mask #will make the value '2' where it is both, in which case we don't want that detected. where mask == 1 willl fix this
     #Post-process filter mask if needed
     if maskFilters[key] is not None:
         #Convert back to Image and filter
@@ -88,10 +102,15 @@ for key in colorMap.keys():
     #plt.figure() #plt.imshow(masks[key])
     #Find indices of all zeros in the mask (where key is)
     print('    Locating {}'.format(key))
-    locations = np.argwhere( mask == 0 )
-    locations = fixMapCoordinates( locations, img.size)
+    locations = np.argwhere( mask == 1 )
+    locations = fixMapCoordinates( locations, mapDimensions[mapNames[mapIndex]] )
     #Convert to meters from the South-West corner (increasing X goes East and increasing Y goes North)
-    coordinates[key] = pixelsToMeters( locations, mapDimensions[mapNames[mapIndex] ] )
+    coordinates[key] = pixelsToNormalized( locations, img.size )
+
+    #coordinates[key] = pixelsToNormalized( locations, mapDimensions[mapNames[mapIndex] ], img.size )
+    coordinates[key] = pixelsToMeters( locations, mapDimensions[mapNames[mapIndex] ], img.size )
+    
+    coordinates[key] = pixelsToNormalized( locations, mapDimensions[mapNames[mapIndex]] )
     #store mask for debug & display
     masks[key] = mask
 #Write to .csv file
@@ -102,7 +121,7 @@ writeCoordinatesToFile(coordinates)
 #Generate Example Figures
 plt.close('all')
 for key in masks.keys():
-    plt.figure(figsize=(10,10)); plt.imshow(masks[key]); plt.title(key)
+    plt.figure(figsize=(10,10)); plt.imshow(masks[key] ); plt.title(key)
     plt.savefig(directoryRoot + key+'_example.png')
     plt.figure(figsize=(10,10)); plt.plot(coordinates[key][0], coordinates[key][1],'.')
     plt.xlabel('West->East (m)', fontsize = 16)
