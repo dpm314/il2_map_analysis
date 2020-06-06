@@ -99,43 +99,46 @@ def pixelsToNormalized(pixel, imgSize ):
 #%%################ Processing Code #########################################
 if __name__ == '__main__':
     mapFileNames = [directoryRoot + 'maps/' + mapName + '.png' for mapName in mapNames]
-    masks = {}
-    diff = {}
-    coordinates = {}
-    for key in ['city','forest','water']: #loop in this order for hack fix to remove already-detected city from the forest detection.
-        print('Generating masks for {} : {}'.format(mapNames[mapIndex], key))
-        #Pre-process filter map image if needed
-        if mapFilters[key] is not None:
-            img_array = np.asarray(img.filter(mapFilters[key]))
-        else:
-            img_arrag = np.asarray(img)
-        print('.')
-        #Compute each pixels similarity to key (water, city or forest templates in colorMap)
-        diff[key] = np.int16(np.sum( np.abs( img_array - colorMap[key]), axis = 2))
-        #Create a mask from the difference, zero pixels below a threshold
-        mask = np.where(diff[key] <= thresholds[key], np.int16(1), img.convert('I') ) #found
-        mask = np.where(diff[key] > thresholds[key],  np.int16(0), mask ) #not_foundmake strictly binary
-        #hack - multiply inverse of city mask to the forest map
-        print('..')
-        if(key == 'forest'):
-            mask =  masks['city']  +  mask #will make the value '2' where it is both, in which case we don't want that detected. where mask == 1 willl fix this
-        #Post-process filter mask if needed
-        if maskFilters[key] is not None:
-            #Convert back to Image and filter
-            mask = Image.fromarray(mask).filter(maskFilters[key])
-            #convert back to numpy array 
-            mask = np.asarray(mask, dtype = np.int16)
-        #optional plot the mask:
-        #plt.figure() #plt.imshow(masks[key])
-        #Find indices of all zeros in the mask (where key is)
-        print('    Locating {}'.format(key))
-        locations = np.argwhere( mask == 1 )
-        #location is pixel coordinates
-        locations = fixMapCoordinates( locations, img.size ) #fix screen coordinates to x/y lat/long coordinates
-        #normalize from 0.0 to 1.0; increasing x is west to east, increasing y is south to north bound to 0.0..1.0
-        coordinates[key] = pixelsToNormalized( locations, img.size )
-        #store mask for debug & display
-        masks[key] = mask
+    for mapIndex in range(len(mapFileNames)):
+        print( '.... Processing Map: {}'.format(mapNames[mapIndex]))
+        img = Image.open(mapFileNames[mapIndex])#.crop([2500,2500,4001,4001]) #for debug work on small subsection
+        masks = {}
+        diff = {}
+        coordinates = {}
+        for key in ['city','forest','water']: #loop in this order for hack fix to remove already-detected city from the forest detection.
+            print('Generating masks for {} : {}'.format(mapNames[mapIndex], key))
+            #Pre-process filter map image if needed
+            if mapFilters[key] is not None:
+                img_array = np.asarray(img.filter(mapFilters[key]))
+            else:
+                img_arrag = np.asarray(img)
+            print('.')
+            #Compute each pixels similarity to key (water, city or forest templates in colorMap)
+            diff[key] = np.int16(np.sum( np.abs( img_array - colorMap[key]), axis = 2))
+            #Create a mask from the difference, zero pixels below a threshold
+            mask = np.where(diff[key] <= thresholds[key], np.int16(1), img.convert('I') ) #found
+            mask = np.where(diff[key] > thresholds[key],  np.int16(0), mask ) #not_foundmake strictly binary
+            #hack - multiply inverse of city mask to the forest map
+            print('..')
+            if(key == 'forest'):
+                mask =  masks['city']  +  mask #will make the value '2' where it is both, in which case we don't want that detected. where mask == 1 willl fix this
+            #Post-process filter mask if needed
+            if maskFilters[key] is not None:
+                #Convert back to Image and filter
+                mask = Image.fromarray(mask).filter(maskFilters[key])
+                #convert back to numpy array 
+                mask = np.asarray(mask, dtype = np.int16)
+            #optional plot the mask:
+            #plt.figure() #plt.imshow(masks[key])
+            #Find indices of all zeros in the mask (where key is)
+            print('    Locating {}'.format(key))
+            locations = np.argwhere( mask == 1 )
+            #location is pixel coordinates
+            locations = fixMapCoordinates( locations, img.size ) #fix screen coordinates to x/y lat/long coordinates
+            #normalize from 0.0 to 1.0; increasing x is west to east, increasing y is south to north bound to 0.0..1.0
+            coordinates[key] = pixelsToNormalized( locations, img.size )
+            #store mask for debug & display
+            masks[key] = mask
         #Write to .csv file
-        dataFilePathBase = directoryRoot + 'data/' + mapNames[mapIndex] + '/'
-        writeCoordinatesToFile(coordinates, path_base=dataFilePathBase)
+    dataFilePathBase = directoryRoot + 'data/' + mapNames[mapIndex] + '/'
+    writeCoordinatesToFile(coordinates, path_base=dataFilePathBase)
