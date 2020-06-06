@@ -35,7 +35,7 @@ mapDimensions = {
     'rheinland' : (40*10*1000.0,40*10*1000.0) #40 squares, 10 km/square, 1000 meters/km
     }
 #%%################# Configuration ###################################
-directoryRoot = '/home/dpm314/coconut/'
+directoryRoot = '/home/dpm314/coconut/data/'
 mapNames = ['moscow','stalingrad','kuban','rheinland']
 
 colorMap = {'forest':np.array( [173,174,162], dtype = np.int16),
@@ -70,11 +70,11 @@ def fixMapCoordinates(pixelIndices, imgSize):
     coordinates[:,0] = pixelIndices[:,1]
     return coordinates
 
-def writeCoordinatesToFile(coords,filename_base = 'coordinates_', path_base = directoryRoot):
+def writeCoordinatesToFile(coords, directory):
     for key in coords.keys():
-        fname = path_base + 'data/' + '{}{}.csv'.format(filename_base, key)
+        fname = directory + '{}.csv'.format(key)
         print("Writing Coordinates to file: {}".format(fname))
-        np.savetxt(fname,np.transpose(coordinates[key]),delimiter=',',fmt='%1.9f')
+        np.savetxt(fname,np.transpose(coords[key]),delimiter=',',fmt='%1.9f')
 
 '''
 #not using this function anymore, normalize to 0.0 to 1.0 on lattitude and longitude coords
@@ -98,10 +98,9 @@ def pixelsToNormalized(pixel, imgSize ):
     return x,y
 #%%################ Processing Code #########################################
 if __name__ == '__main__':
-    mapFileNames = [directoryRoot + 'maps/' + mapName + '.png' for mapName in mapNames]
     for mapIndex in range(len(mapFileNames)):
         print( '.... Processing Map: {}'.format(mapNames[mapIndex]))
-        img = Image.open(mapFileNames[mapIndex])#.crop([2500,2500,4001,4001]) #for debug work on small subsection
+        img = Image.open(mapFileNames[mapIndex]).crop([2500,2500,3500,3500]) #for debug work on small subsection
         masks = {}
         diff = {}
         coordinates = {}
@@ -140,5 +139,7 @@ if __name__ == '__main__':
             #store mask for debug & display
             masks[key] = mask
         #Write to .csv file
-    dataFilePathBase = directoryRoot + 'data/' + mapNames[mapIndex] + '/'
-    writeCoordinatesToFile(coordinates, path_base=dataFilePathBase)
+        directory = directoryRoot + mapNames[mapIndex] + r'/'
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+        writeCoordinatesToFile(coordinates,directory )
