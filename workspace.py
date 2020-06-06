@@ -35,6 +35,8 @@ mapDimensions = {
     }
 #%%################# Utility Functions ###################################
 def fixMapCoordinates(pixelIndices, imgSize):
+    #converts screen coordinates to lat/long coordinate orientation
+    # where X goes east to west, Y goes south to North
     coordinates = np.zeros( pixelIndices.shape )
     coordinates[:,1] = imgSize[1]  - pixelIndices[:,0]
     coordinates[:,0] = pixelIndices[:,1]
@@ -44,9 +46,11 @@ def writeCoordinatesToFile(coords,filename_base = 'coordinates_', path_base = di
     for key in coords.keys():
         fname = path_base + 'data/' + '{}{}.csv'.format(filename_base, key)
         print("Writing Coordinates to file: {}".format(fname))
-        np.savetxt(fname,coordinates[key],delimiter=',',fmt='%1.7f')
+        np.savetxt(fname,np.transpose(coordinates[key]),delimiter=',',fmt='%1.9f')
 
-
+'''
+#not using this function anymore, normalize to 0.0 to 1.0 on lattitude and longitude coords
+#   instead of using meters from southwest corner of the map
 def pixelsToMeters(pixel, mapDimension, imgSize ):
     #normalize first then expand to meters
 
@@ -58,9 +62,7 @@ def pixelsToMeters(pixel, mapDimension, imgSize ):
     x *= np.float32( mapDimension[0] )
     y *= np.float32( mapDimension[1] )
     return x,y
-
-
-
+'''
 def pixelsToNormalized(pixel, imgSize ):
     #normalize first then expand to meters
     x = np.float32( pixel[:,0] ) / np.float32( imgSize[0] )
@@ -69,7 +71,7 @@ def pixelsToNormalized(pixel, imgSize ):
 #%%################ Processing Code #########################################
 mapFileNames = [directoryRoot + 'maps/' + mapName + '.png' for mapName in mapNames]
 mapIndex = -4 #start with just rheinland
-img = Image.open(mapFileNames[mapIndex]).crop([2500,2500,7001,3501]) #for debug work on small subsection
+img = Image.open(mapFileNames[mapIndex])#.crop([0,0,5000,5000]) #for debug work on small subsection
 #%%
 plt.close('all')
 masks = {}
@@ -103,14 +105,10 @@ for key in ['city','forest','water']: #loop in this order for hack fix to remove
     #Find indices of all zeros in the mask (where key is)
     print('    Locating {}'.format(key))
     locations = np.argwhere( mask == 1 )
-    locations = fixMapCoordinates( locations, mapDimensions[mapNames[mapIndex]] )
-    #Convert to meters from the South-West corner (increasing X goes East and increasing Y goes North)
+    #location is pixel coordinates
+    locations = fixMapCoordinates( locations, img.size ) #fix screen coordinates to x/y lat/long coordinates
+    #normalize from 0.0 to 1.0; increasing x is west to east, increasing y is south to north bound to 0.0..1.0
     coordinates[key] = pixelsToNormalized( locations, img.size )
-
-    #coordinates[key] = pixelsToNormalized( locations, mapDimensions[mapNames[mapIndex] ], img.size )
-    coordinates[key] = pixelsToMeters( locations, mapDimensions[mapNames[mapIndex] ], img.size )
-    
-    coordinates[key] = pixelsToNormalized( locations, mapDimensions[mapNames[mapIndex]] )
     #store mask for debug & display
     masks[key] = mask
 #Write to .csv file
@@ -123,7 +121,7 @@ plt.close('all')
 for key in masks.keys():
     plt.figure(figsize=(10,10)); plt.imshow(masks[key] ); plt.title(key)
     plt.savefig(directoryRoot + key+'_example.png')
-    plt.figure(figsize=(10,10)); plt.plot(coordinates[key][0], coordinates[key][1],'.')
+    plt.figure(figsize=(10,10)); plt.plot(coordinates[key][0], coordinates[key][1],'.');plt.title(key)
     plt.xlabel('West->East (m)', fontsize = 16)
     plt.ylabel('South->North (m)', fontsize = 16)
     plt.tight_layout()
