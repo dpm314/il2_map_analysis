@@ -8,33 +8,6 @@ from PIL import Image
 from PIL import ImageFilter
 Image.MAX_IMAGE_PIXELS = None
 #%%################# Configuration ###################################
-directoryRoot = '/home/dpm314/coconut/'
-mapNames = ['moscow','stalingrad','kuban','rheinland']
-
-colorMap = {'forest':np.array( [189,186,162], dtype = np.int16),
-            'water' :np.array( [161,186,192], dtype = np.int16),
-            'city'  :np.array( [165,165,165], dtype = np.int16)
-            }
-thresholds = {'forest'  :np.int16(25),
-              'water'   :np.int16(20),
-              'city'    :np.int16(1)
-            }
-
-mapFilters = {'forest'  :ImageFilter.ModeFilter( size = 5 ),#ImageFilter.ModeFilter( size = 3 ),
-              'water'   :None,
-              'city'    :ImageFilter.ModeFilter( size = 3 )
-            }
-maskFilters = {'forest' :None,
-              'water'   :ImageFilter.MinFilter( size = 5 ),
-              'city'    :None
-            }
-mapDimensions = {
-    'moscow'    : (28*10*1000.0,28*10*1000.0),
-    'stalingrad': (36*10*1000.0,23*10*1000.0),
-    'kuban'     : (40*10*1000.0,32*10*1000.0),
-    'rheinland' : (40*10*1000.0,40*10*1000.0) #40 squares, 10 km/square, 1000 meters/km
-    }
-#%%################# Configuration ###################################
 directoryRoot = '/home/dpm314/coconut/data/'
 mapNames = ['moscow','stalingrad','kuban','rheinland']
 
