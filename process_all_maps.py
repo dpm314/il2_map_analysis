@@ -100,7 +100,7 @@ def pixelsToNormalized(pixel, imgSize ):
 if __name__ == '__main__':
     for mapIndex in range(len(mapFileNames)):
         print( '.... Processing Map: {}'.format(mapNames[mapIndex]))
-        img = Image.open(mapFileNames[mapIndex]).crop([2500,2500,3500,3500]) #for debug work on small subsection
+        img = Image.open(mapFileNames[mapIndex])#.crop([2500,2500,3500,3500]) #for debug work on small subsection
         masks = {}
         diff = {}
         coordinates = {}
